@@ -497,10 +497,15 @@ def importar_cada_minuto():
             print("[importar] error:", e)
 
 
+class Servidor(ThreadingHTTPServer):
+    # En Windows SO_REUSEADDR deja que dos paneles escuchen a la vez en el mismo puerto.
+    allow_reuse_address = False
+
+
 def servir():
     importar(verbose=True)
     threading.Thread(target=importar_cada_minuto, daemon=True).start()
-    srv = ThreadingHTTPServer(("127.0.0.1", PUERTO), Panel)
+    srv = Servidor(("127.0.0.1", PUERTO), Panel)
     url = "http://127.0.0.1:%d/" % PUERTO
     print("Panel en", url, "(Ctrl+C para cerrar)")
     if "--sin-navegador" not in sys.argv:

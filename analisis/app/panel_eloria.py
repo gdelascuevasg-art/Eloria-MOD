@@ -49,7 +49,7 @@ def main():
     el = cargar_eloria()
     url = "http://127.0.0.1:%d/" % el.PUERTO
     try:
-        srv = ThreadingHTTPServer(("127.0.0.1", el.PUERTO), el.Panel)
+        srv = el.Servidor(("127.0.0.1", el.PUERTO), el.Panel)
     except OSError:
         srv = None  # ya hay un panel abierto: esta ventana usa ese
     if srv:
