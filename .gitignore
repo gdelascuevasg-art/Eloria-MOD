@@ -1,0 +1,26 @@
+# Este repositorio puede vivir dentro de la carpeta del cliente de Eloria:
+# se ignora TODO menos lo nuestro (nunca entran config.otml, GameData.bin, etc.).
+/*
+!/.gitignore
+!/README.md
+!/analisis/
+!/mods_zalo/
+!/tools/
+!/CargarMod.ahk
+!/Eloria HUD.lua
+!/eloria_expeditions.lua
+
+# datos y restos que no se versionan
+analisis/eloria.db
+analisis/__pycache__/
+mods_zalo/*
+!mods_zalo/datos/
+!mods_zalo/expediciones/
+!mods_zalo/xp_logger.lua
+mods_zalo/datos/registros/
+tools/*.bak
+tools/_backup_mod_autoload/
+tools/vigia.log
+tools/recorrido_*.txt
+tools/secuencia_expedicion_ANTIGUA.lua
+tools/gen_expeditions_con_tramo_grabado.py

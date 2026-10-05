@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Eloria · Análisis</title>
+<style>
+:root {
+  --bg: #f6f7f9; --card: #ffffff; --ink: #1d2330; --quiet: #657085; --line: #e3e6ec;
+  --accent: #2f6fde; --accent-soft: rgba(47,111,222,.12); --good: #1f9d55; --warn: #c27c0e; --bad: #d14343;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #11151c; --card: #1a2029; --ink: #e8ecf2; --quiet: #93a0b4; --line: #2b3340;
+          --accent: #6b9cff; --accent-soft: rgba(107,156,255,.15); }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { display: flex; align-items: center; gap: 12px; padding: 16px 24px; border-bottom: 1px solid var(--line); background: var(--card); position: sticky; top: 0; z-index: 2; }
+header h1 { font-size: 17px; margin: 0; flex: 1; }
+header .estado { color: var(--quiet); font-size: 12.5px; }
+button, select { font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+main { max-width: 1200px; margin: 0 auto; padding: 20px 24px 48px; display: grid; gap: 20px; }
+.tarjetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+.tarjeta { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; cursor: pointer; }
+.tarjeta.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.tarjeta h3 { margin: 0 0 2px; font-size: 15px; display: flex; justify-content: space-between; align-items: center; }
+.punto { width: 8px; height: 8px; border-radius: 50%; background: var(--quiet); display: inline-block; }
+.punto.on { background: var(--good); }
+.tarjeta .sub { color: var(--quiet); font-size: 12.5px; margin-bottom: 10px; }
+.kv { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: 13px; }
+.kv span:nth-child(odd) { color: var(--quiet); }
+.kv span:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+section.panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+section.panel h2 { font-size: 15px; margin: 0 0 12px; display: flex; gap: 12px; align-items: center; }
+section.panel h2 .der { margin-left: auto; display: flex; gap: 8px; }
+.conclusiones { margin: 0; padding-left: 18px; }
+.conclusiones li { margin: 4px 0; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--quiet); font-weight: 500; }
+th:first-child, td:first-child, th.izq, td.izq { text-align: left; }
+.tabla { overflow-x: auto; }
+.dos { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 800px) { .dos { grid-template-columns: 1fr; } main { padding: 16px; } }
+.barra { display: grid; grid-template-columns: 130px 1fr 70px; gap: 8px; align-items: center; font-size: 13px; margin: 5px 0; }
+.barra .pista { height: 10px; background: var(--line); border-radius: 5px; overflow: hidden; }
+.barra .relleno { height: 100%; background: var(--accent); border-radius: 5px; }
+.barra .val { text-align: right; font-variant-numeric: tabular-nums; color: var(--quiet); }
+.vacio { color: var(--quiet); font-size: 13px; }
+svg text { fill: var(--quiet); font-size: 11px; }
+.tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--bg); padding: 6px 8px; border-radius: 6px; font-size: 12px; display: none; z-index: 5; }
+.malo { color: var(--bad); font-weight: 600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Eloria · Análisis</h1>
+  <span class="estado" id="estado">cargando…</span>
+  <button id="btnImportar">Importar ahora</button>
+</header>
+<main>
+  <div class="tarjetas" id="tarjetas"></div>
+
+  <section class="panel">
+    <h2>Conclusiones (últimos 7 días)</h2>
+    <ul class="conclusiones" id="conclusiones"></ul>
+  </section>
+
+  <section class="panel">
+    <h2><span id="tituloSerie">XP/h</span>
+      <span class="der">
+        <select id="metrica"><option value="xp_h">XP/h</option><option value="raw_h">RAW/h</option><option value="kills_min">Kills/min</option><option value="nivel">Nivel</option></select>
+        <select id="rango"><option value="24">24 h</option><option value="72">3 días</option><option value="168" selected>7 días</option><option value="720">30 días</option></select>
+      </span>
+    </h2>
+    <div id="grafica"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Sesiones de caza</h2>
+    <div class="tabla"><table id="sesiones"></table></div>
+  </section>
+
+  <div class="dos">
+    <section class="panel"><h2>Daño recibido por elemento</h2><div id="elementos"></div></section>
+    <section class="panel"><h2>Daño recibido por monstruo</h2><div id="origenes"></div></section>
+  </div>
+  <div class="dos">
+    <section class="panel"><h2>Muertes</h2><div class="tabla"><table id="muertes"></table></div></section>
+    <section class="panel"><h2>Pociones tomadas</h2><div class="tabla"><table id="buffs"></table></div></section>
+  </div>
+</main>
+<div class="tip" id="tip"></div>
+<script src="app.js"></script>
+</body>
+</html>
