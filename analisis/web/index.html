@@ -63,6 +63,20 @@ svg text { fill: var(--quiet); font-size: 11px; }
 .opcion .nombre { flex: 1; font-weight: 600; }
 .opcion .det { color: var(--quiet); font-size: 12.5px; }
 .opcion.ultimo { border-color: var(--accent); }
+.mods { align-items: start; display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
+.mod { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 10px; }
+.mod h3 { margin: 0; font-size: 14.5px; display: flex; align-items: center; gap: 8px; }
+.mod h3 .det { margin-left: auto; color: var(--quiet); font-weight: 400; font-size: 12px; }
+.fila { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.fila .et { width: 92px; color: var(--quiet); }
+.fila .info { color: var(--quiet); font-size: 12.5px; }
+.onoff { min-width: 54px; font-weight: 600; padding: 4px 10px; }
+.onoff.on { color: var(--good); border-color: var(--good); }
+.chip { padding: 3px 9px; border-radius: 999px; font-size: 12.5px; }
+.chip.on { color: var(--good); border-color: var(--good); }
+.peligro { color: var(--bad); border-color: var(--bad); }
+.resultado { font-size: 12.5px; color: var(--quiet); }
+.resultado.err { color: var(--bad); }
 </style>
 </head>
 <body>
@@ -75,6 +89,11 @@ svg text { fill: var(--quiet); font-size: 11px; }
 </header>
 <main>
   <div class="tarjetas" id="tarjetas"></div>
+
+  <section class="panel">
+    <h2>Control del mod <span class="der vacio" id="modNota"></span></h2>
+    <div class="mods" id="mods"></div>
+  </section>
 
   <section class="panel">
     <h2>Conclusiones (últimos 7 días)</h2>

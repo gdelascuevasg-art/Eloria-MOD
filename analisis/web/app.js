@@ -121,11 +121,67 @@ async function cargarDetalle() {
 async function refrescar() {
   try {
     await cargarResumen();
+    cargarMod();
     await cargarDetalle();
     $('estado').textContent = 'actualizado ' + new Date().toLocaleTimeString('es-ES');
   } catch (e) {
     $('estado').textContent = 'sin conexión con eloria.py';
   }
+}
+
+// Control del mod: estado que escribe el mod (cada 2 s) y órdenes por personaje.
+const fmtSeg = n => { n = Math.max(0, Math.round(n)); const h = Math.floor(n / 3600), m = Math.floor(n % 3600 / 60); return h ? `${h} h ${m} min` : `${m}:${String(n % 60).padStart(2, '0')}`; };
+const onoff = (on, orden, titulo) => `<button class="onoff ${on ? 'on' : ''}" data-orden="${esc(orden)}" title="${esc(titulo)}">${on ? 'ON' : 'OFF'}</button>`;
+
+async function orden(pj, texto, boton) {
+  if (boton) boton.disabled = true;
+  try {
+    const r = await fetch('/api/orden', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pj, orden: texto }) });
+    const d = await r.json();
+    $('modNota').textContent = d.error ? 'Error: ' + d.error : `Enviado a ${pj}: ${texto}`;
+  } catch (e) { $('modNota').textContent = 'Sin conexión con el programa'; }
+  setTimeout(cargarMod, 1500);
+}
+
+function tarjetaMod(d) {
+  const pj = d.pj;
+  if (!d.conectado) return `<div class="mod"><h3><span class="punto"></span>${esc(pj)}</h3>
+    <div class="resultado">${esc(d.motivo || ('sin noticias del mod desde ' + hace(d.edad || 0)))}</div></div>`;
+  const e = d.exp || {}, po = d.pociones || {}, cz = d.caza || {};
+  const activas = Object.entries(po.activas || {}).filter(([, s]) => s > 0).sort((a, b) => b[1] - a[1]);
+  const mapas = ['auto', 'venomfen', 'prismheart', 'cinderfall'];
+  const otros = [['Auto-EXP', d.autoexp && d.autoexp.on], ['Boss Run', d.boss && d.boss.on], ['Bosstiary', d.bosstiary], ['Mining', d.mining], ['Forja', d.forja && d.forja.on]]
+    .filter(([, on]) => on).map(([n]) => n);
+  const res = d.orden;
+  return `<div class="mod" data-pj="${esc(pj)}">
+    <h3><span class="punto on"></span>${esc(pj)}<span class="det">hace ${d.edad} s</span></h3>
+    <div class="fila"><span class="et">Expediciones</span>${onoff(e.on, e.on ? 'exp off' : 'exp on', 'Encender o apagar las expediciones')}
+      <select data-mapa>${mapas.map(m => `<option value="${m}" ${e.seleccion === m ? 'selected' : ''}>${m === 'auto' ? 'Auto (bucle)' : m[0].toUpperCase() + m.slice(1)}</option>`).join('')}</select></div>
+    ${e.on ? `<div class="fila info">${esc(e.paso || '')}${e.ruta ? ' · ' + esc(e.ruta) : ''} · ${esc((e.estado || '').replace(/^Estado: /, ''))}</div>` : ''}
+    <div class="fila"><span class="et">Pociones</span>${onoff(po.on, po.on ? 'pociones off' : 'pociones on', 'Auto-pociones')}
+      <span class="info">${activas.length ? activas.map(([n, s]) => esc(n) + ' ' + fmtSeg(s)).join(' · ') : 'ninguna activa'}</span></div>
+    <div class="fila"><span class="et">Cavebot</span>${onoff(cz.on, cz.on ? 'caza off' : '', 'Apagar la caza del cavebot')}
+      <select data-caza><option value="">${cz.on ? esc(cz.nombre) : 'elegir caza…'}</option>${(cz.lista || []).filter(n => n !== cz.nombre).map(n => `<option>${esc(n)}</option>`).join('')}</select></div>
+    <div class="fila"><span class="et">Pesca</span>${(d.pesca || []).map(f => `<button class="chip ${f.on ? 'on' : ''}" data-orden="pesca ${f.n} ${f.on ? 'off' : 'on'}">${esc(f.name)}</button>`).join('')}</div>
+    <div class="fila"><span class="et">También</span><span class="info">${otros.length ? otros.join(', ') + ' en ON' : 'nada más en marcha'}</span>
+      <button class="peligro" data-orden="parar" style="margin-left:auto">Parar todo</button></div>
+    ${res ? `<div class="resultado ${res.ok ? '' : 'err'}">Última orden: ${esc(res.msg)}</div>` : ''}
+  </div>`;
+}
+
+async function cargarMod() {
+  const lista = estado.enlace && estado.enlace !== '*' ? [estado.enlace] : estado.personajes.map(p => p.pj);
+  if (!lista.length) { $('mods').innerHTML = '<div class="vacio">Sin personajes.</div>'; return; }
+  const datos = await Promise.all(lista.map(pj => api('mod', { pj }).catch(() => ({ pj, conectado: false, motivo: 'sin conexión con el programa' }))));
+  const abierto = document.activeElement && document.activeElement.tagName === 'SELECT';
+  if (abierto) return;  // no repintar mientras eliges en un desplegable
+  $('mods').innerHTML = datos.map(tarjetaMod).join('');
+  $('mods').querySelectorAll('.mod[data-pj]').forEach(card => {
+    const pj = card.dataset.pj;
+    card.querySelectorAll('[data-orden]').forEach(b => { if (b.dataset.orden) b.onclick = () => orden(pj, b.dataset.orden, b); else b.disabled = true; });
+    const m = card.querySelector('[data-mapa]'); if (m) m.onchange = () => orden(pj, 'mapa ' + m.value);
+    const c = card.querySelector('[data-caza]'); if (c) c.onchange = () => { if (c.value) orden(pj, 'caza ' + c.value); };
+  });
 }
 
 // Al abrir el panel pregunta con qué cliente enlazarse. Se recuerda mientras la pestaña siga abierta.
@@ -166,3 +222,4 @@ $('btnImportar').onclick = async () => {
 const enlaceGuardado = leer(sessionStorage, 'eloria.cliente');
 if (enlaceGuardado) enlazar(enlaceGuardado); else abrirSelector();
 setInterval(() => { if (estado.enlace) refrescar(); }, 60000);
+setInterval(() => { if (estado.enlace) cargarMod().catch(() => {}); }, 3000);

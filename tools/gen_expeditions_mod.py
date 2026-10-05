@@ -744,6 +744,7 @@ do
     local hunt = AUTO_HUNTS[ExpModHunt or ""] and C and C.isEnabled and C.isEnabled()
     local t, now = mine(), os.time()
     if not t or now - lastUse < 2 then return end
+    if ExpModPotsOff then return why("apagadas (Panel Eloria)") end
     local zone, any = resPots(p)
     if any then lastMob = now end
     if not (ax or hunt or now - lastMob < 60) then return why(nil) end
@@ -2154,6 +2155,123 @@ showPage = function(name)
   end
   for _,w in ipairs(PAGES[name]) do w:setVisible(true) end
   curPage = name
+end
+
+-- ================== Mod: canal con Panel Eloria (la app) ==================
+-- Cada 2 s escribe el estado de este personaje en /mods_zalo/app_estado_<pj>.json
+-- y cada 1 s lee las ordenes de /mods_zalo/app_orden_<pj>.txt (lineas
+-- "<id> <epoch> <orden...>"). Solo ejecuta ordenes nuevas (ids no vistos) y de los
+-- ultimos 30 s, asi que recargar el mod no repite nada. Ordenes:
+--   exp on|off            mapa auto|venomfen|prismheart|cinderfall
+--   pociones on|off       caza <nombre de HUNTS>|off
+--   pesca <n> on|off      parar   (apaga todo: expediciones, bosses, cavebot...)
+do
+  ExpModApp = ExpModApp or {last={}, res={}}
+  local A = ExpModApp
+  local function enc(v)
+    local t = type(v)
+    if t == "string" then return '"'..v:gsub('[%c"\\]', function(c) return string.format("\\u%04x", c:byte()) end)..'"' end
+    if t == "number" then return (v ~= v or v == math.huge or v == -math.huge) and "null" or tostring(v) end
+    if t == "boolean" then return tostring(v) end
+    if t ~= "table" then return "null" end
+    local n, out = #v, {}
+    if n > 0 then
+      for i = 1, n do out[i] = enc(v[i]) end
+      return "["..table.concat(out, ",").."]"
+    end
+    for k, x in pairs(v) do out[#out+1] = enc(tostring(k))..":"..enc(x) end
+    return "{"..table.concat(out, ",").."}"
+  end
+  local function txt(w) local ok, s = pcall(function() return w:getText() end); return ok and s or nil end
+  local function pjName() local p = me(); return p and p:getName() end
+  local MAPAS = {auto=0, venomfen=1, prismheart=2, cinderfall=3}
+
+  local function orden(pj, palabras)
+    local c, a, b = palabras[1], palabras[2], palabras[3]
+    if c == "exp" and (a == "on" or a == "off") then
+      local on = ST.stage ~= "off"
+      if (a == "on") == on then return true, "ya estaba "..a end
+      if a == "on" then onlyOne("exp") end
+      toggle()
+      return true, "expediciones "..a
+    elseif c == "mapa" and a and MAPAS[a] then
+      ExpModSel = MAPAS[a]
+      if ExpModSel ~= 0 then VI = ExpModSel end
+      pcall(paintMaps)
+      return true, "mapa "..a
+    elseif c == "pociones" and (a == "on" or a == "off") then
+      ExpModPotsOff = (a == "off")
+      return true, "pociones "..a
+    elseif c == "caza" and a then
+      if not ExpModHuntCtl then return false, "sin control del cavebot" end
+      local nombre = table.concat(palabras, " ", 2)
+      if nombre == "off" then return ExpModHuntCtl(ExpModHunt or "", false) end
+      local ok = false
+      for _, h in ipairs(HUNTS) do if h.name == nombre then ok = true end end
+      if not ok then return false, "no conozco la caza '"..nombre.."'" end
+      onlyOne("cavebot")
+      return ExpModHuntCtl(nombre, true)
+    elseif c == "pesca" and tonumber(a) and FISH[tonumber(a)] and (b == "on" or b == "off") then
+      ExpModFish[tonumber(a)] = (b == "on")
+      pcall(paintFish)
+      return true, "pesca "..FISH[tonumber(a)].name.." "..b
+    elseif c == "parar" then
+      onlyOne("app")
+      return true, "todo parado"
+    end
+    return false, "orden desconocida: "..table.concat(palabras, " ")
+  end
+
+  every(function()
+    local pj = pjName()
+    if not (pj and g_game.isOnline()) then return end
+    local ruta = "/mods_zalo/app_orden_"..pj..".txt"
+    if not g_resources.fileExists(ruta) then return end
+    local ok, s = pcall(g_resources.readFileContents, ruta)
+    if not ok or not s then return end
+    local ahora = os.time()
+    for linea in s:gmatch("[^\r\n]+") do
+      local id, t, resto = linea:match("^(%S+)%s+(%d+)%s+(.+)$")
+      local vistas = A.last[pj]
+      if type(vistas) ~= "table" then vistas = {n=0}; A.last[pj] = vistas end
+      if id and not vistas[id] and ahora - tonumber(t) <= 30 then
+        if vistas.n > 200 then vistas = {n=0}; A.last[pj] = vistas end
+        vistas[id], vistas.n = true, vistas.n + 1
+        local palabras = {}
+        for w in resto:gmatch("%S+") do palabras[#palabras+1] = w end
+        local okc, r1, r2 = pcall(orden, pj, palabras)
+        if not okc then r1, r2 = false, tostring(r1) end
+        A.res[pj] = {id=id, ok=r1 and true or false, msg=tostring(r2 or ""), t=ahora}
+        print("[Panel Eloria] "..resto.." -> "..tostring(r2))
+      end
+    end
+  end, 1000)
+
+  every(function()
+    local pj = pjName()
+    if not (pj and g_game.isOnline()) then return end
+    local C = ebCavebot()
+    local huntOn = ExpModHunt and C and C.isEnabled and C.isEnabled() and true or false
+    local fish, hunts = {}, {}
+    for i, m in ipairs(FISH) do fish[i] = {n=i, name=m.name, on=ExpModFish[i] and true or false} end
+    for _, h in ipairs(HUNTS) do hunts[#hunts+1] = h.name end
+    local E = HX and HX.E and HX.E.enabled or {}
+    local estado = {
+      v=1, pj=pj, t=os.time(),
+      exp={on=ST.stage ~= "off", etapa=ST.stage, paso=txt(hudStep), estado=txt(hudAlert),
+           ruta=ST.route and ST.route.name or nil, mapa=ST.route and ST.route.map or nil,
+           seleccion=ExpModSel == 0 and "auto" or VL[ExpModSel], siguiente=VL[VI]},
+      pociones={on=not ExpModPotsOff, activas=(ExpModBuffs or {})[pj] or {}},
+      autoexp={on=ExpModAX and ExpModAX.on and true or false, cfg=(ExpModAXCfg or {})[pj]},
+      caza={nombre=ExpModHunt, on=huntOn, lista=hunts},
+      boss={on=BOSS.on and true or false, etapa=BOSS.stage},
+      pesca=fish,
+      bosstiary=E.bosstiary and true or false, mining=E.mining and true or false,
+      forja={on=FG.on and true or false},
+      orden=A.res[pj],
+    }
+    g_resources.writeFileContents("/mods_zalo/app_estado_"..pj..".json", enc(estado))
+  end, 2000)
 end
 
 -- ================== Mod: control ==================

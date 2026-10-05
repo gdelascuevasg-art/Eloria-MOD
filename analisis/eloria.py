@@ -366,6 +366,48 @@ def clientes(con):
     return {"clientes": out, "detecta_ventanas": os.name == "nt", "ahora": ahora}
 
 
+# ------------------------------------------------------------- canal con el mod
+# El mod (expediciones.lua) escribe mods_zalo/app_estado_<pj>.json cada 2 s y lee
+# mods_zalo/app_orden_<pj>.txt cada 1 s: lineas "<id> <epoch> <orden>".
+ORDENES_OK = re.compile(r"^(exp (on|off)|mapa (auto|venomfen|prismheart|cinderfall)|pociones (on|off)"
+                        r"|caza [\w .'-]{1,40}|pesca \d{1,2} (on|off)|parar)$")
+
+
+def _ruta_pj(prefijo, pj, ext):
+    if not pj or not re.match(r"^[\w .'-]{1,40}$", pj):
+        raise ValueError("personaje no valido")
+    return os.path.join(CLIENTE, "mods_zalo", "%s_%s.%s" % (prefijo, pj, ext))
+
+
+def estado_mod(pj):
+    ruta = _ruta_pj("app_estado", pj, "json")
+    if not os.path.exists(ruta):
+        return {"pj": pj, "conectado": False, "motivo": "el mod no ha escrito su estado (¿mod sin actualizar o cliente cerrado?)"}
+    try:
+        with open(ruta, encoding="utf-8", errors="replace") as f:
+            d = json.load(f)
+    except ValueError:
+        return {"pj": pj, "conectado": False, "motivo": "estado a medio escribir, reintenta"}
+    d["edad"] = int(time.time()) - int(d.get("t") or 0)
+    d["conectado"] = d["edad"] < 15
+    return d
+
+
+def mandar_orden(pj, orden):
+    orden = " ".join(str(orden or "").split())
+    if not ORDENES_OK.match(orden):
+        raise ValueError("orden no permitida: " + orden)
+    ruta = _ruta_pj("app_orden", pj, "txt")
+    previas = []
+    if os.path.exists(ruta):
+        with open(ruta, encoding="utf-8", errors="replace") as f:
+            previas = [l for l in f.read().splitlines() if l.strip()][-9:]
+    oid = "%x" % time.time_ns()
+    with open(ruta, "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(previas + ["%s %d %s" % (oid, int(time.time()), orden)]) + "\n")
+    return {"id": oid, "orden": orden}
+
+
 # ------------------------------------------------------------------ servidor
 class Panel(SimpleHTTPRequestHandler):
     def __init__(self, *a, **kw):
@@ -383,9 +425,17 @@ class Panel(SimpleHTTPRequestHandler):
         self.wfile.write(cuerpo)
 
     def do_POST(self):
-        if urlparse(self.path).path == "/api/importar":
+        ruta = urlparse(self.path).path
+        if ruta == "/api/importar":
             with conectar() as con:
                 return self._json({"nuevas": importar(con)})
+        if ruta == "/api/orden":
+            try:
+                largo = int(self.headers.get("Content-Length") or 0)
+                d = json.loads(self.rfile.read(min(largo, 4096)) or b"{}")
+                return self._json(mandar_orden(d.get("pj"), d.get("orden")))
+            except (ValueError, OSError) as e:
+                return self._json({"error": str(e)}, 400)
         self.send_error(404)
 
     def do_GET(self):
@@ -402,6 +452,11 @@ class Panel(SimpleHTTPRequestHandler):
             if ruta == "resumen":
                 return self._json({"personajes": resumen(con), "conclusiones": conclusiones(con),
                                    "ahora": ahora, "version": VERSION})
+            if ruta == "mod" and pj:
+                try:
+                    return self._json(estado_mod(pj))
+                except ValueError as e:
+                    return self._json({"error": str(e)}, 400)
             if ruta == "clientes":
                 return self._json(clientes(con))
             if ruta == "sesiones":
