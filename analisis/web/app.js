@@ -172,7 +172,9 @@ function tarjetaMod(d) {
 async function cargarMod() {
   const lista = estado.enlace && estado.enlace !== '*' ? [estado.enlace] : estado.personajes.map(p => p.pj);
   if (!lista.length) { $('mods').innerHTML = '<div class="vacio">Sin personajes.</div>'; return; }
-  const datos = await Promise.all(lista.map(pj => api('mod', { pj }).catch(() => ({ pj, conectado: false, motivo: 'sin conexión con el programa' }))));
+  const datos = await Promise.all(lista.map(pj => api('mod', { pj })
+    .then(d => d && d.pj ? d : { pj, conectado: false, motivo: d && d.error === 'no existe' ? 'el programa abierto es una versión antigua: cierra y vuelve a abrir Panel Eloria' : 'error: ' + ((d && d.error) || 'respuesta vacía') })
+    .catch(() => ({ pj, conectado: false, motivo: 'sin conexión con el programa' }))));
   const abierto = document.activeElement && document.activeElement.tagName === 'SELECT';
   if (abierto) return;  // no repintar mientras eliges en un desplegable
   $('mods').innerHTML = datos.map(tarjetaMod).join('');
