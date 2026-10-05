@@ -13,6 +13,7 @@ Nunca lee config.otml (guarda la cuenta y la contrasena).
 import glob
 import json
 import os
+import re
 import sqlite3
 import sys
 import threading
@@ -326,6 +327,44 @@ def corto(n):
     return "%.0f" % n
 
 
+def ventanas_abiertas():
+    """Nombres de las ventanas "Eloria - <Nombre>" abiertas ahora (solo Windows)."""
+    if os.name != "nt":
+        return []
+    import ctypes
+    from ctypes import wintypes
+    user32 = ctypes.windll.user32
+    nombres = []
+
+    def cada(hwnd, _):
+        if user32.IsWindowVisible(hwnd):
+            largo = user32.GetWindowTextLengthW(hwnd)
+            if largo:
+                buf = ctypes.create_unicode_buffer(largo + 1)
+                user32.GetWindowTextW(hwnd, buf, largo + 1)
+                m = re.match(r"^Eloria - (.+)$", buf.value)
+                if m:
+                    nombres.append(m.group(1).strip())
+        return True
+
+    proto = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    user32.EnumWindows(proto(cada), 0)
+    return sorted(set(nombres))
+
+
+def clientes(con):
+    """Clientes con los que se puede enlazar el panel: ventanas abiertas y personajes con datos."""
+    ahora = int(time.time())
+    abiertas = ventanas_abiertas()
+    out = []
+    for pj in sorted(set(abiertas) | set(personajes(con))):
+        ult = con.execute("SELECT MAX(t) FROM ticks WHERE pj=?", (pj,)).fetchone()[0]
+        out.append({"pj": pj, "abierto": pj in abiertas, "ultimo": ult,
+                    "grabando": bool(ult and ahora - ult < 120)})
+    out.sort(key=lambda c: (not c["abierto"], not c["grabando"], c["pj"]))
+    return {"clientes": out, "detecta_ventanas": os.name == "nt", "ahora": ahora}
+
+
 # ------------------------------------------------------------------ servidor
 class Panel(SimpleHTTPRequestHandler):
     def __init__(self, *a, **kw):
@@ -362,6 +401,8 @@ class Panel(SimpleHTTPRequestHandler):
             if ruta == "resumen":
                 return self._json({"personajes": resumen(con), "conclusiones": conclusiones(con),
                                    "ahora": ahora})
+            if ruta == "clientes":
+                return self._json(clientes(con))
             if ruta == "sesiones":
                 lista = []
                 for p in ([pj] if pj else personajes(con)):

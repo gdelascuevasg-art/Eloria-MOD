@@ -1,6 +1,8 @@
 // Panel de análisis de Eloria: solo lee de la API local (eloria.py).
 const $ = id => document.getElementById(id);
-const estado = { pj: null, personajes: [] };
+const estado = { pj: null, personajes: [], enlace: null };  // enlace: nombre del cliente, o '*' = todos
+const guardar = (almacen, k, v) => { try { almacen.setItem(k, v); } catch (e) {} };
+const leer = (almacen, k) => { try { return almacen.getItem(k); } catch (e) { return null; } };
 
 const corto = n => {
   n = Number(n || 0);
@@ -20,6 +22,12 @@ const api = async (ruta, params = {}) => {
 
 async function cargarResumen() {
   const r = await api('resumen');
+  if (estado.enlace && estado.enlace !== '*') {
+    r.personajes = r.personajes.filter(p => p.pj === estado.enlace);
+    if (!r.personajes.length) r.personajes = [{ pj: estado.enlace, xp_h_1h: 0, raw_h_1h: 0, xp_24h: 0, caza_24h: 0, muertes_24h: 0 }];
+    r.conclusiones = r.conclusiones.filter(c => c.startsWith(estado.enlace + ':'));
+    estado.pj = estado.enlace;
+  }
   estado.personajes = r.personajes;
   if (!estado.pj && r.personajes.length) {
     const reciente = [...r.personajes].sort((a, b) => (b.ultimo || 0) - (a.ultimo || 0))[0];
@@ -119,11 +127,41 @@ async function refrescar() {
   }
 }
 
+// Al abrir el panel pregunta con qué cliente enlazarse. Se recuerda mientras la pestaña siga abierta.
+async function abrirSelector() {
+  $('selector').classList.add('abierto');
+  $('opciones').innerHTML = '<div class="vacio">Buscando clientes…</div>';
+  let r;
+  try { r = await api('clientes'); } catch (e) { $('opciones').innerHTML = '<div class="vacio">Sin conexión con eloria.py.</div>'; return; }
+  const ultimo = leer(localStorage, 'eloria.ultimoCliente');
+  const detalle = c => c.abierto ? (c.grabando ? 'abierto · grabando' : 'abierto · sin datos aún') : (c.ultimo ? 'cerrado · datos ' + hace(r.ahora - c.ultimo) : 'cerrado');
+  $('ayudaSelector').textContent = r.detecta_ventanas
+    ? 'Primero salen las ventanas de Eloria abiertas ahora; después, los personajes con datos guardados.'
+    : 'Personajes con datos guardados.';
+  $('opciones').innerHTML = r.clientes.map(c => `<button class="opcion ${c.pj === ultimo ? 'ultimo' : ''}" data-pj="${esc(c.pj)}">
+      <span class="punto ${c.grabando ? 'on' : ''}"></span><span class="nombre">${esc(c.pj)}</span><span class="det">${detalle(c)}</span></button>`).join('')
+    + `<button class="opcion ${ultimo === '*' ? 'ultimo' : ''}" data-pj="*"><span class="nombre">Todos</span><span class="det">ver los ${r.clientes.length} a la vez</span></button>`;
+  $('opciones').querySelectorAll('.opcion').forEach(b => b.onclick = () => enlazar(b.dataset.pj));
+  ($('opciones').querySelector('.ultimo') || $('opciones').querySelector('.opcion')).focus();
+}
+
+function enlazar(pj) {
+  estado.enlace = pj;
+  estado.pj = pj === '*' ? null : pj;
+  guardar(sessionStorage, 'eloria.cliente', pj);
+  guardar(localStorage, 'eloria.ultimoCliente', pj);
+  $('enlace').innerHTML = 'Enlazado con <b>' + esc(pj === '*' ? 'todos' : pj) + '</b>';
+  $('selector').classList.remove('abierto');
+  refrescar();
+}
+
+$('btnCliente').onclick = abrirSelector;
 $('rango').onchange = $('metrica').onchange = cargarDetalle;
 $('btnImportar').onclick = async () => {
   $('estado').textContent = 'importando…';
   await fetch('/api/importar', { method: 'POST' });
   refrescar();
 };
-refrescar();
-setInterval(refrescar, 60000);
+const enlaceGuardado = leer(sessionStorage, 'eloria.cliente');
+if (enlaceGuardado) enlazar(enlaceGuardado); else abrirSelector();
+setInterval(() => { if (estado.enlace) refrescar(); }, 60000);

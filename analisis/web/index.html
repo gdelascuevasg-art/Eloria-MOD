@@ -51,11 +51,24 @@ th:first-child, td:first-child, th.izq, td.izq { text-align: left; }
 svg text { fill: var(--quiet); font-size: 11px; }
 .tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--bg); padding: 6px 8px; border-radius: 6px; font-size: 12px; display: none; z-index: 5; }
 .malo { color: var(--bad); font-weight: 600; }
+.enlace { font-size: 13px; color: var(--quiet); }
+.enlace b { color: var(--ink); }
+.selector { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 10; padding: 16px; }
+.selector.abierto { display: flex; }
+.selector .caja { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; width: 100%; max-width: 440px; }
+.selector h2 { font-size: 16px; margin: 0 0 4px; }
+.selector p { color: var(--quiet); font-size: 13px; margin: 0 0 14px; }
+.opcion { display: flex; width: 100%; align-items: center; gap: 10px; text-align: left; padding: 10px 12px; margin: 0 0 8px; border-radius: 10px; }
+.opcion .nombre { flex: 1; font-weight: 600; }
+.opcion .det { color: var(--quiet); font-size: 12.5px; }
+.opcion.ultimo { border-color: var(--accent); }
 </style>
 </head>
 <body>
 <header>
   <h1>Eloria · Análisis</h1>
+  <span class="enlace" id="enlace"></span>
+  <button id="btnCliente">Cambiar cliente</button>
   <span class="estado" id="estado">cargando…</span>
   <button id="btnImportar">Importar ahora</button>
 </header>
@@ -92,6 +105,13 @@ svg text { fill: var(--quiet); font-size: 11px; }
   </div>
 </main>
 <div class="tip" id="tip"></div>
+<div class="selector" id="selector" role="dialog" aria-modal="true" aria-labelledby="tituloSelector">
+  <div class="caja">
+    <h2 id="tituloSelector">¿Con qué cliente quieres enlazar el panel?</h2>
+    <p id="ayudaSelector">Estas son las ventanas de Eloria abiertas y los personajes con datos.</p>
+    <div id="opciones"></div>
+  </div>
+</div>
 <script src="app.js"></script>
 </body>
 </html>
