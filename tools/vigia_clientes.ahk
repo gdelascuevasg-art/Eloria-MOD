@@ -19,13 +19,13 @@ SetKeyDelay 40, 40
 
 LINEA := 'local f,e=loadstring(g_resources.readFileContents("/mods_zalo/expediciones/expediciones.lua"),"@expediciones") if f then f() else print(e) end'
 ESPERA_MS := 20000         ; tiempo desde que aparece la ventana hasta cargar
-LOG := A_ScriptDir "\vigia.log"
+ARCHIVO_LOG := A_ScriptDir "\vigia.log"
 
 cargados := Map()          ; pid -> nombre del personaje ya cargado
 vistos := Map()            ; pid -> A_TickCount en que se vio por primera vez
 
 Apunta(texto) {
-    try FileAppend FormatTime(, "yyyy-MM-dd HH:mm:ss") " " texto "`n", LOG, "UTF-8"
+    try FileAppend FormatTime(, "yyyy-MM-dd HH:mm:ss") " " texto "`n", ARCHIVO_LOG, "UTF-8"
 }
 
 Cargar(hwnd, nombre) {
