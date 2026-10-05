@@ -29,6 +29,7 @@ async function cargarResumen() {
     estado.pj = estado.enlace;
   }
   estado.personajes = r.personajes;
+  if (r.version) $('version').textContent = 'v' + r.version;
   if (!estado.pj && r.personajes.length) {
     const reciente = [...r.personajes].sort((a, b) => (b.ultimo || 0) - (a.ultimo || 0))[0];
     estado.pj = reciente.pj;

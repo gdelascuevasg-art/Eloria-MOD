@@ -23,6 +23,7 @@ from collections import Counter, defaultdict
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
+VERSION = "0.1"
 AQUI = os.path.dirname(os.path.abspath(__file__))
 CLIENTE = os.environ.get("ELORIA_CLIENTE") or os.path.dirname(AQUI)
 DB = os.environ.get("ELORIA_DB") or os.path.join(AQUI, "eloria.db")
@@ -400,7 +401,7 @@ class Panel(SimpleHTTPRequestHandler):
             ruta = u.path[5:]
             if ruta == "resumen":
                 return self._json({"personajes": resumen(con), "conclusiones": conclusiones(con),
-                                   "ahora": ahora})
+                                   "ahora": ahora, "version": VERSION})
             if ruta == "clientes":
                 return self._json(clientes(con))
             if ruta == "sesiones":

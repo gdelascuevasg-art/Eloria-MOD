@@ -1,0 +1,9 @@
+Panel Eloria - historial de versiones
+=====================================
+
+0.1  (05/10/2026)
+  - Primera version.
+  - Recolector zalo_datos.lua: graba cada 30 s XP, raw, kills, dano, posicion y muertes de cada personaje.
+  - Panel: sesiones de caza, XP/h por zona, dano por elemento, muertes, buffs y recomendaciones.
+  - Al abrir pregunta con que cliente (personaje abierto) enlazarse.
+  - Aplicacion de escritorio: Panel Eloria.exe (ventana propia, sin navegador ni consola).
