@@ -24,3 +24,6 @@ tools/vigia.log
 tools/recorrido_*.txt
 tools/secuencia_expedicion_ANTIGUA.lua
 tools/gen_expeditions_con_tramo_grabado.py
+analisis/Eloria.exe
+analisis/build_exe/
+analisis/*.bak
