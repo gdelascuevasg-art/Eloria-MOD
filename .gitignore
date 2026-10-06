@@ -17,6 +17,9 @@ analisis/__pycache__/
 mods_zalo/*
 !mods_zalo/datos/
 !mods_zalo/expediciones/
+!mods_zalo/dungeon/
+mods_zalo/dungeon/sonda_*.jsonl
+mods_zalo/dungeon/casillas_*.txt
 !mods_zalo/xp_logger.lua
 mods_zalo/datos/registros/
 tools/*.bak
